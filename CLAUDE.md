@@ -150,11 +150,6 @@ See the ["Adding a Lockfile Parser" checklist in CONTRIBUTING.md](./CONTRIBUTING
 
 ---
 
-## Adding a Lockfile Parser
-
-See the ["Adding a Lockfile Parser" checklist in CONTRIBUTING.md](./CONTRIBUTING.md#adding-a-lockfile-parser) — it covers `src/parsers/index.ts`, `src/constants/ecosystems.ts`, the tool descriptions in `src/tools/audit.ts` / `src/tools/license-check.ts`, and test coverage in `tests/parsers/index.test.ts`.
-
----
 
 ## Adding a New API Client
 

@@ -113,22 +113,6 @@ Run `pnpm check` before opening the PR — it catches most of the above automati
 
 ---
 
-## Adding a Lockfile Parser
-
-Nearly every parser PR misses a step — tests, tool descriptions, or the ecosystem enum — which costs a review round-trip. Work through this checklist:
-
-1. **Write the parser** — add a `parseXxx()` function in `src/parsers/index.ts` and wire it into the `parseLockfile()` dispatcher (matched by filename, e.g. `"go.sum"`, `"Cargo.lock"`).
-2. **Register the ecosystem** — if the format introduces a new package ecosystem, add it to `ECOSYSTEM_VALUES` in `src/constants/ecosystems.ts`.
-3. **Update tool descriptions** — add the new filename to the supported-format lists in both `src/tools/audit.ts` and `src/tools/license-check.ts` (the tool `description` field and the `lockfile_name` input schema description).
-4. **Add tests** — add a `describe()` block for the format in `tests/parsers/index.test.ts` covering:
-   - the happy path, with a realistic (trimmed) lockfile fixture parsing into the expected deps
-   - invalid or malformed input returning `[]`
-5. **Optional: add an example** — add a project under `examples/` that demonstrates `hound_audit` or `hound_license_check` against the new format, and link it from `examples/README.md`.
-
-Run `pnpm check` before opening the PR — it catches most of the above automatically (typecheck + lint + tests).
-
----
-
 ## Code Style
 
 - TypeScript strict mode — no `any`, ever

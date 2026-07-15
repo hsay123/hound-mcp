@@ -65,12 +65,29 @@ describe("hound_license_check", () => {
   it("handles unsupported lockfile format", async () => {
     const result = await (tool.handler as (args: Record<string, unknown>) => Promise<unknown>)({
       lockfile_content: "{}",
-      lockfile_name: "composer.lock",
+      lockfile_name: "bower.json",
       policy: "permissive",
     });
 
     const text = (result as { content: { text: string }[] }).content[0]?.text ?? "";
     expect(text).toContain("Unsupported lockfile format");
+  });
+
+  it("returns an explicit message for composer.lock instead of checking licenses", async () => {
+    const content = JSON.stringify({
+      packages: [{ name: "laravel/framework", version: "v10.0.0" }],
+    });
+
+    const result = await (tool.handler as (args: Record<string, unknown>) => Promise<unknown>)({
+      lockfile_content: content,
+      lockfile_name: "composer.lock",
+      policy: "permissive",
+    });
+
+    const text = (result as { content: { text: string }[] }).content[0]?.text ?? "";
+    expect(text).toContain("not currently supported");
+    expect(text).toContain("Packagist");
+    expect(depsdev.getVersion).not.toHaveBeenCalled();
   });
 
   it("suggests a similar supported lockfile format", async () => {

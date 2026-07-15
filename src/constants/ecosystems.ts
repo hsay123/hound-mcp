@@ -7,4 +7,5 @@ export const ECOSYSTEM_VALUES = [
   "nuget",
   "rubygems",
   "pub",
+  "packagist",
 ] as const;

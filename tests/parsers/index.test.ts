@@ -327,6 +327,84 @@ describe("Pipfile.lock", () => {
 });
 
 // ---------------------------------------------------------------------------
+// packages.lock.json (NuGet)
+// ---------------------------------------------------------------------------
+
+describe("packages.lock.json", () => {
+  it("extracts packages from a single target framework", () => {
+    const content = JSON.stringify({
+      version: 1,
+      dependencies: {
+        "net8.0": {
+          "Newtonsoft.Json": {
+            type: "Direct",
+            requested: "[13.0.1, )",
+            resolved: "13.0.1",
+            contentHash: "abc123",
+          },
+          Serilog: {
+            type: "Direct",
+            requested: "[3.1.1, )",
+            resolved: "3.1.1",
+            contentHash: "def456",
+          },
+        },
+      },
+    });
+    const result = parseLockfile("packages.lock.json", content);
+    expect(result).toHaveLength(2);
+    expect(result).toContainEqual({
+      name: "Newtonsoft.Json",
+      version: "13.0.1",
+      ecosystem: "nuget",
+    });
+    expect(result).toContainEqual({ name: "Serilog", version: "3.1.1", ecosystem: "nuget" });
+  });
+
+  it("extracts packages across multiple target frameworks", () => {
+    const content = JSON.stringify({
+      version: 1,
+      dependencies: {
+        "net6.0": {
+          "Newtonsoft.Json": { type: "Direct", resolved: "13.0.1" },
+        },
+        "net8.0": {
+          "Newtonsoft.Json": { type: "Direct", resolved: "13.0.1" },
+          Serilog: { type: "Direct", resolved: "3.1.1" },
+        },
+      },
+    });
+    const result = parseLockfile("packages.lock.json", content);
+    expect(result).toHaveLength(3);
+    expect(result?.filter((d) => d.name === "Newtonsoft.Json")).toHaveLength(2);
+  });
+
+  it("returns empty array for invalid JSON", () => {
+    const result = parseLockfile("packages.lock.json", "not valid json {{{");
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty array when dependencies field is missing", () => {
+    const result = parseLockfile("packages.lock.json", JSON.stringify({ version: 1 }));
+    expect(result).toEqual([]);
+  });
+
+  it("skips entries with no resolved field", () => {
+    const content = JSON.stringify({
+      version: 1,
+      dependencies: {
+        "net8.0": {
+          Transitive: { type: "Transitive" },
+          Serilog: { type: "Direct", resolved: "3.1.1" },
+        },
+      },
+    });
+    const result = parseLockfile("packages.lock.json", content);
+    expect(result).toEqual([{ name: "Serilog", version: "3.1.1", ecosystem: "nuget" }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Cargo.lock
 // ---------------------------------------------------------------------------
 
@@ -597,6 +675,130 @@ sdks:
         version: "1.1.0",
         ecosystem: "pub",
       },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// gradle.lockfile (Gradle/Java)
+// ---------------------------------------------------------------------------
+
+describe("gradle.lockfile", () => {
+  it("extracts dependencies from a typical lockfile", () => {
+    const content = `# This is a Gradle generated file for dependency locking.
+# Manual edits can break the build and are not advised.
+# This file is expected to be part of source control.
+com.google.guava:guava:31.1-jre=compileClasspath,runtimeClasspath
+org.springframework:spring-core:5.3.20=compileClasspath
+empty=annotationProcessor,testCompileClasspath
+`;
+    const result = parseLockfile("gradle.lockfile", content);
+    expect(result).toHaveLength(2);
+    expect(result).toContainEqual({
+      name: "com.google.guava:guava",
+      version: "31.1-jre",
+      ecosystem: "maven",
+    });
+    expect(result).toContainEqual({
+      name: "org.springframework:spring-core",
+      version: "5.3.20",
+      ecosystem: "maven",
+    });
+  });
+
+  it("skips comment lines", () => {
+    const content = `# comment one
+# comment two
+com.example:lib:1.0.0=compileClasspath
+`;
+    const result = parseLockfile("gradle.lockfile", content);
+    expect(result).toEqual([{ name: "com.example:lib", version: "1.0.0", ecosystem: "maven" }]);
+  });
+
+  it("skips the empty= metadata line", () => {
+    const content = `empty=annotationProcessor,testCompileClasspath\n`;
+    const result = parseLockfile("gradle.lockfile", content);
+    expect(result).toEqual([]);
+  });
+
+  it("returns an empty array for blank content", () => {
+    const result = parseLockfile("gradle.lockfile", "");
+    expect(result).toEqual([]);
+  });
+
+  it("ignores malformed lines that don't match group:artifact:version=", () => {
+    const content = `not-a-valid-line
+com.example:lib:1.0.0=compileClasspath
+another:malformed
+`;
+    const result = parseLockfile("gradle.lockfile", content);
+    expect(result).toEqual([{ name: "com.example:lib", version: "1.0.0", ecosystem: "maven" }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// composer.lock (PHP/Composer)
+// ---------------------------------------------------------------------------
+
+describe("composer.lock", () => {
+  it("extracts packages from both packages and packages-dev", () => {
+    const content = JSON.stringify({
+      packages: [
+        { name: "laravel/framework", version: "v10.0.0" },
+        { name: "guzzlehttp/guzzle", version: "7.5.0" },
+      ],
+      "packages-dev": [{ name: "phpunit/phpunit", version: "10.0.0" }],
+    });
+    const result = parseLockfile("composer.lock", content);
+    expect(result).toHaveLength(3);
+    expect(result).toContainEqual({
+      name: "laravel/framework",
+      version: "10.0.0",
+      ecosystem: "packagist",
+    });
+    expect(result).toContainEqual({
+      name: "guzzlehttp/guzzle",
+      version: "7.5.0",
+      ecosystem: "packagist",
+    });
+    expect(result).toContainEqual({
+      name: "phpunit/phpunit",
+      version: "10.0.0",
+      ecosystem: "packagist",
+    });
+  });
+
+  it("strips leading v from version strings", () => {
+    const content = JSON.stringify({
+      packages: [{ name: "laravel/framework", version: "v10.0.0" }],
+    });
+    const result = parseLockfile("composer.lock", content);
+    expect(result).toEqual([
+      { name: "laravel/framework", version: "10.0.0", ecosystem: "packagist" },
+    ]);
+  });
+
+  it("returns empty array for invalid JSON", () => {
+    const result = parseLockfile("composer.lock", "not valid json {{{");
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty array when neither packages nor packages-dev is present", () => {
+    const result = parseLockfile("composer.lock", JSON.stringify({ "content-hash": "abc" }));
+    expect(result).toEqual([]);
+  });
+
+  it("skips entries missing name or version", () => {
+    const content = JSON.stringify({
+      packages: [
+        { name: "laravel/framework" },
+        { version: "1.0.0" },
+        { name: "guzzlehttp/guzzle", version: "7.5.0" },
+      ],
+    });
+    const result = parseLockfile("composer.lock", content);
+    expect(result).toEqual([
+      { name: "guzzlehttp/guzzle", version: "7.5.0", ecosystem: "packagist" },
     ]);
   });
 });

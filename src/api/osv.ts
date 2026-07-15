@@ -21,6 +21,7 @@ const ECOSYSTEM_MAP: Record<Ecosystem, string> = {
   nuget: "NuGet",
   rubygems: "RubyGems",
   pub: "Pub",
+  packagist: "Packagist",
 };
 
 export interface OsvSeverityEntry {
